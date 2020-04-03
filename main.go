@@ -12,35 +12,49 @@ import (
 )
 
 var (
-	encryptKey = []byte("dicdc155d6741e79c8970be327c4a1c8caa")
-	decryptKey = []byte("dicb0e1fee7b3c3b7142be3e20b760439c0")
+	keymap = map[string]KeyPair{
+		"1.2.7": {
+			encrypt: []byte("dicdc155d6741e79c8970be327c4a1c8caa"),
+			decrypt: []byte("dicb0e1fee7b3c3b7142be3e20b760439c0"),
+		},
+		"1.2.9": {
+			encrypt: []byte("dicc62736e38c2752911ffef5783a2c9509"),
+			decrypt: []byte("dic1d12d0899e2bcd524faa159576e86398"),
+		},
+	}
 )
 
-func main() {
-	decrypt_send("data/1.2.7_1583845718_send.bin", 1583845718)
-	decrypt_recv("data/1.2.7_1583845718_recv.bin", 1583845718)
+type KeyPair struct {
+	encrypt, decrypt []byte
 }
 
-func decrypt_send(file string, t uint32) {
+func main() {
+	// decrypt_send("data/1.2.9_1585838086_send.bin", 1585838086, keymap["1.2.9"].encrypt)
+	// decrypt_recv("data/1.2.9_1585838086_recv.bin", 1585838086, keymap["1.2.9"].decrypt)
+	decrypt_recv("data/1.2.7_1583845718_send.bin", 1583845718, keymap["1.2.7"].encrypt)
+	decrypt_recv("data/1.2.7_1583845718_recv.bin", 1583845718, keymap["1.2.7"].decrypt)
+}
+
+func decrypt_send(file string, t uint32, dkey []byte) {
 	cipher, err := ioutil.ReadFile(file)
 	if err != nil {
 		log.Panicf("读取加密文件失败: %v", err)
 	}
 	var key bytes.Buffer
-	key.Write(encryptKey)
+	key.Write(dkey)
 	key.Write([]byte(fmt.Sprintf("%d", t)))
 	if err := decrypt(cipher, key.Bytes()); err != nil {
 		log.Panicf("解密失败: %v", err)
 	}
 }
 
-func decrypt_recv(file string, t uint32) {
+func decrypt_recv(file string, t uint32, dkey []byte) {
 	cipher, err := ioutil.ReadFile(file)
 	if err != nil {
 		log.Panicf("读取加密文件失败: %v", err)
 	}
 	var key bytes.Buffer
-	key.Write(decryptKey)
+	key.Write(dkey)
 	key.Write([]byte(fmt.Sprintf("%d", t)))
 	if err := decrypt(cipher, key.Bytes()); err != nil {
 		log.Panicf("解密失败: %v", err)
@@ -81,7 +95,7 @@ func decrypt(cipher []byte, key []byte) error {
 		head1 = (mix2 + head1*mix3 + head2 + int32(key[3])) % mix1
 		head2 = (mix3 + head2*mix2 + head1 + int32(key[4])) % mix1
 		exc1, exc2 := readu16(buf), readu16(buf)
-		clen := len(cipher) - 13
+		clen := len(cipher) - 9 - ext
 		log.Printf("(%04x, %04x), (%04x, %04x)",
 			exc1^uint16(clen>>16), exc2^uint16(clen), uint16(head1), uint16(head2))
 		if (exc1^uint16(clen>>16) == uint16(head1)) && (exc2^uint16(clen) == uint16(head2)) {
@@ -104,7 +118,7 @@ func decrypt(cipher []byte, key []byte) error {
 		out[i] = byte(int32(pbuf[i]) ^ head2 ^ head1)
 		org = int32(out[i])
 		if ext != 0 {
-			log.Printf("[%d] crt[%d]: %d, org: %d", i, i%ext, crx[i%ext], org)
+			// log.Printf("[%d] crt[%d]: %d, org: %d", i, i%ext, crx[i%ext], org)
 			crx[i%ext] = crx[i%ext] ^ out[i]
 		}
 	}
